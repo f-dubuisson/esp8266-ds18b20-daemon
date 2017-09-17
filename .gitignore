@@ -1,3 +1,7 @@
 .clang_complete
 .pioenvs/
 .piolibdeps/
+.pioenvs
+.piolibdeps
+.vscode/c_cpp_properties.json
+src/config.h
