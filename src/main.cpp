@@ -22,6 +22,16 @@ Initial source code: https://gist.github.com/jeje/57091acf138a92c4176a#file-esp8
 #include <Streaming.h>
 #include "config.h"
 
+#undef DEBUG
+
+#ifdef DEBUG
+#define _print(a) Serial.print(a)
+#define _println(a) Serial.println(a)
+#else
+#define _print(a)
+#define _println(a)
+#endif
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -33,6 +43,26 @@ char batteryString[6];
 
 ADC_MODE(ADC_VCC);
 
+void setup_wifi() {
+  delay(10);
+  // We start by connecting to a WiFi network
+  _println();
+  _print("Connecting to ");
+  _println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    _print(".");
+  }
+
+  _println("");
+  _println("WiFi connected");
+  _println("IP address: ");
+  _println(WiFi.localIP());
+}
+
 void setup() {
   // setup serial port
   Serial.begin(115200);
@@ -40,53 +70,22 @@ void setup() {
   // setup WiFi
   setup_wifi();
   client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
 
   // setup OneWire bus
   DS18B20.begin();
 }
 
-void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-}
-
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    _print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect("ESP8266Client", mqtt_username, mqtt_password)) {
-      Serial.println("connected");
+      _println("connected");
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      _print("failed, rc=");
+      _print(client.state());
+      _println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
     }
@@ -94,7 +93,7 @@ void reconnect() {
 }
 
 float getTemperature() {
-  Serial << "Requesting DS18B20 temperature..." << endl;
+  _println("Requesting DS18B20 temperature...");
   float temp;
   do {
     DS18B20.requestTemperatures(); 
@@ -113,24 +112,28 @@ void loop() {
   // convert battery to a string with two digits before the comma and 2 digits for precision and send
   float battery = ESP.getVcc();
   dtostrf(battery, 2, 2, batteryString);
-  Serial << "Sending battery: " << batteryString << endl;
+  _print("Sending battery: ");
+  _println(batteryString);
   client.publish(mqtt_topic_battery, batteryString);
 
   // convert temperature to a string with two digits before the comma and 2 digits for precision and send
   float temperature = getTemperature();
   dtostrf(temperature, 2, 2, temperatureString);
-  Serial << "Sending temperature: " << temperatureString << endl;
+  _print("Sending temperature: ");
+  _println(temperatureString);
   client.publish(mqtt_topic_temperature, temperatureString);
 
-  Serial << "Closing MQTT connection..." << endl;
+  _println("Closing MQTT connection...");
   client.disconnect();
 
-  Serial << "Closing WiFi connection..." << endl;
+  _println("Closing WiFi connection...");
   WiFi.disconnect();
 
   delay(100);
 
-  Serial << "Entering deep sleep mode for " << SLEEP_DELAY_IN_SECONDS << " seconds..." << endl;
+  _print("Entering deep sleep mode for ");
+  _print(SLEEP_DELAY_IN_SECONDS);
+  _println(" seconds...");
   ESP.deepSleep(SLEEP_DELAY_IN_SECONDS * 1000000, WAKE_RF_DEFAULT);
   //ESP.deepSleep(10 * 1000, WAKE_NO_RFCAL);
   delay(500);   // wait for deep sleep to happen
