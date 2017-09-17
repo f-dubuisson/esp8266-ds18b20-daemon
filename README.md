@@ -1,3 +1,5 @@
-# esp8266-ds18b20
+# esp8266-ds18b20-daemon
 
-Simple code exposing an HTTP interface on the ESP8266 to retreive the temperature from connected sensors.
+Code for ESP8266 getting temperature at regular interval and sending it on MQTT.
+Goes to deep sleep mode in between and also provides the battery level (on NodeMCU devices).
+
