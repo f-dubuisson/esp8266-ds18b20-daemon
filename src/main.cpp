@@ -43,8 +43,6 @@ BufferedMetric temperature(minTemperatureOffset);
 BufferedMetric battery(minBatteryOffset);
 long wakeUpCount = 0;
 
-char temperatureString[6];
-char batteryString[6];
 
 ADC_MODE(ADC_VCC);
 
@@ -63,14 +61,14 @@ void setup_wifi() {
 	}
 
 	_println("");
-	_println("WiFi connected");
-	_println("IP address: ");
+	_print("WiFi connected; IP address: ");
 	_println(WiFi.localIP());
 }
 
 void setup() {
 	// setup serial port
 	Serial.begin(115200);
+	_println("");
 	_println("---------------------");
 	_println("Starting up...");
 
@@ -91,8 +89,9 @@ void setup() {
 	battery.updateValue(value);
 }
 
-void reconnect() {
+void setup_mqtt() {
 	// Loop until we're reconnected
+	client.setServer(mqtt_server, 1883);
 	while (!client.connected()) {
 		_print("Attempting MQTT connection...");
 		// Attempt to connect
@@ -106,6 +105,7 @@ void reconnect() {
 			delay(5000);
 		}
 	}
+	client.loop();
 }
 
 float getTemperature() {
@@ -121,34 +121,22 @@ float getTemperature() {
 
 void loop() {
 	wakeUpCount ++;
-	bool needUpdate = (wakeUpCount >= maxWakeUpCount);
-	float newBattery = ESP.getVcc();
-	needUpdate |= battery.updateValue(newBattery);
-	float newTemperature = getTemperature();
-	needUpdate |= temperature.updateValue(newTemperature);
 
-	_println(wakeUpCount);
-	_println(newBattery);
-	_println(battery.getValue());
-	_println(newTemperature);
-	_println(temperature.getValue());
+	bool needUpdate = (wakeUpCount >= maxWakeUpCount);
+	needUpdate |= battery.updateValue(ESP.getVcc());
+	needUpdate |= temperature.updateValue(getTemperature());
 
 	int addr = 0;
 	addr += sizeof(long);
 	
 	if (needUpdate) {
-		// setup WiFi
 		setup_wifi();
-		client.setServer(mqtt_server, 1883);
-
-		if (!client.connected()) {
-			reconnect();
-		}
-		client.loop();
+		setup_mqtt();
 
 		// convert temperature to a string with two digits before the comma and 2 digits for precision and send
 		EEPROM.put(addr, temperature.getValue());
 		addr += sizeof(float);
+		char temperatureString[6];
 		dtostrf(temperature.getValue(), 2, 2, temperatureString);
 		_print("Sending temperature: ");
 		_println(temperatureString);
@@ -157,6 +145,7 @@ void loop() {
 		// convert battery to a string with two digits before the comma and 2 digits for precision and send
 		EEPROM.put(addr, battery.getValue());
 		addr += sizeof(float);
+		char batteryString[6];
 		dtostrf(battery.getValue(), 2, 2, batteryString);
 		_print("Sending battery: ");
 		_println(batteryString);
@@ -183,6 +172,6 @@ void loop() {
 	_print(SLEEP_DELAY_IN_SECONDS);
 	_println(" seconds...");
 	ESP.deepSleep(SLEEP_DELAY_IN_SECONDS * 1000000, WAKE_RF_DEFAULT);
-	//ESP.deepSleep(10 * 1000, WAKE_NO_RFCAL);
+
 	delay(500);   // wait for deep sleep to happen
 }
