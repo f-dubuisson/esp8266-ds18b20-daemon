@@ -19,9 +19,9 @@ Initial source code: https://gist.github.com/jeje/57091acf138a92c4176a#file-esp8
 #include <PubSubClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <eeprom_esp8266.h>
 #include <streaming.h>
 #include "BufferedMetric.h"
+#include "Persistency.h"
 #include "config.h"
 
 #define DEBUG
@@ -41,6 +41,8 @@ PubSubClient client(espClient);
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
+
+Persistency persistency;
 
 BufferedMetric temperature(minTemperatureOffset);
 BufferedMetric battery(minBatteryOffset);
@@ -73,18 +75,11 @@ void setup() {
 	// setup OneWire bus
 	DS18B20.begin();
 
-	EEPROM.begin(64);
-
-	int addr = 0;
-	float value;
-	EEPROM.get(addr, wakeUpCount);
-	addr += sizeof(wakeUpCount);
-	EEPROM.get(addr, value);
-	addr += sizeof(value);
-	temperature.updateValue(value);
-	EEPROM.get(addr, value);
-	addr += sizeof(value);
-	battery.updateValue(value);
+	// Loading EEPROM
+	persistency.load();
+	wakeUpCount = persistency.getWakeUpCount();
+	temperature.setValue(persistency.getTemperature());
+	battery.setValue(persistency.getBattery());
 }
 
 void setup_mqtt() {
@@ -126,28 +121,22 @@ void loop() {
 	needUpdate |= battery.updateValue(newVcc);
 	needUpdate |= temperature.updateValue(newTemperature);
 
-	int addr = 0;
-	addr += sizeof(long);
-	
 	if (needUpdate) {
-		battery.setValue(newVcc);
-		temperature.setValue(newTemperature);
-
 		setup_wifi();
 		setup_mqtt();
 
 		LOG("Sending update..." << endl)
 
 		// convert temperature to a string with two digits before the comma and 2 digits for precision and send
-		EEPROM.put(addr, temperature.getValue());
-		addr += sizeof(float);
+		battery.setValue(newVcc);
+		persistency.setTemperature(temperature.getValue());
 		char temperatureString[6];
 		dtostrf(temperature.getValue(), 2, 2, temperatureString);
 		client.publish(mqtt_topic_temperature, temperatureString);
 
 		// convert battery to a string with two digits before the comma and 2 digits for precision and send
-		EEPROM.put(addr, battery.getValue());
-		addr += sizeof(float);
+		temperature.setValue(newTemperature);
+		persistency.setBattery(battery.getValue());
 		char batteryString[6];
 		dtostrf(battery.getValue(), 2, 2, batteryString);
 		client.publish(mqtt_topic_battery, batteryString);
@@ -166,8 +155,8 @@ void loop() {
 		LOG("Nothing interesting to send." << endl);
 	}
 
-	EEPROM.put(0, wakeUpCount);
-	EEPROM.commit();
+	persistency.setWakeUpCount(wakeUpCount);
+	persistency.commit();
 	
 	LOG("Entering deep sleep mode for " << SLEEP_DELAY_IN_SECONDS << " seconds..." << endl);
 	ESP.deepSleep(SLEEP_DELAY_IN_SECONDS * 1000000, WAKE_RF_DEFAULT);
