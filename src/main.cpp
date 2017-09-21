@@ -121,15 +121,20 @@ float getTemperature() {
 
 void loop() {
 	wakeUpCount ++;
+	float newVcc = ESP.getVcc();
+	float newTemperature = getTemperature();
 
 	bool needUpdate = (wakeUpCount >= maxWakeUpCount);
-	needUpdate |= battery.updateValue(ESP.getVcc());
-	needUpdate |= temperature.updateValue(getTemperature());
+	needUpdate |= battery.updateValue(newVcc);
+	needUpdate |= temperature.updateValue(newTemperature);
 
 	int addr = 0;
 	addr += sizeof(long);
 	
 	if (needUpdate) {
+		battery.setValue(newVcc);
+		temperature.setValue(newTemperature);
+
 		setup_wifi();
 		setup_mqtt();
 

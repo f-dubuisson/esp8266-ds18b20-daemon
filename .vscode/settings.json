@@ -4,6 +4,7 @@
         "functional": "cpp",
         "tuple": "cpp",
         "utility": "cpp",
-        "cstdlib": "cpp"
+        "cstdlib": "cpp",
+        "initializer_list": "cpp"
     }
 }

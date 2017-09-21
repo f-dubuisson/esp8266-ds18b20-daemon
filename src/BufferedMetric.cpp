@@ -14,6 +14,10 @@ bool BufferedMetric::updateValue(float newValue) {
     return false;
 }
 
+void BufferedMetric::setValue(float newValue) {
+    value = newValue;
+}
+
 float BufferedMetric::getValue() {
     return value;
 }

@@ -7,6 +7,7 @@ public:
 
     // Update the value if it matches the constructor constraints
     bool updateValue(float value);
+    void setValue(float value);
     float getValue();
 
 private:
